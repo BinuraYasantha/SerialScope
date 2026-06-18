@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { serialService } from '../services/serial.service'
 import type {
@@ -12,6 +12,7 @@ import type {
 } from '../types/serial.types'
 
 const baudRates = [2400, 4800, 9600, 19200, 31250, 38400, 57600, 74880, 115200, 230400, 250000]
+const SERIAL_SETTINGS_STORAGE_KEY = 'serialscope-serial-settings'
 
 const dataBitsOptions = [7, 8] as const
 const stopBitsOptions = [1, 2] as const
@@ -25,13 +26,24 @@ interface PendingLine {
   timestampLabel: string
 }
 
+interface StoredSerialSettings {
+  baudRate: number
+  dataBits: 7 | 8
+  stopBits: 1 | 2
+  parity: 'none' | 'even' | 'odd'
+  flowControl: 'none' | 'hardware'
+  lineEnding: SerialLineEnding
+}
+
 export const useSerialStore = defineStore('serial', () => {
+  const persistedSettings = readStoredSerialSettings()
+
   const settings = reactive<SerialSettings>({
-    baudRate: 9600,
-    dataBits: 8,
-    stopBits: 1,
-    parity: 'none',
-    flowControl: 'none',
+    baudRate: persistedSettings.baudRate,
+    dataBits: persistedSettings.dataBits,
+    stopBits: persistedSettings.stopBits,
+    parity: persistedSettings.parity,
+    flowControl: persistedSettings.flowControl,
   })
 
   const supported = ref(true)
@@ -47,13 +59,35 @@ export const useSerialStore = defineStore('serial', () => {
   const commandHistory = ref<string[]>([])
   const historyCursor = ref(-1)
   const draftCommand = ref('')
-  const lineEnding = ref<SerialLineEnding>('newline')
+  const lineEnding = ref<SerialLineEnding>(persistedSettings.lineEnding)
   const searchQuery = ref('')
   const autoScroll = ref(true)
   const timestampsEnabled = ref(true)
   const paused = ref(false)
   const rxBytes = ref(0)
   const txBytes = ref(0)
+
+  watch(
+    [
+      () => settings.baudRate,
+      () => settings.dataBits,
+      () => settings.stopBits,
+      () => settings.parity,
+      () => settings.flowControl,
+      lineEnding,
+    ],
+    () => {
+      writeStoredSerialSettings({
+        baudRate: settings.baudRate,
+        dataBits: settings.dataBits,
+        stopBits: settings.stopBits,
+        parity: settings.parity,
+        flowControl: settings.flowControl,
+        lineEnding: lineEnding.value,
+      })
+    },
+    { immediate: true },
+  )
 
   const statusLabel = computed(() => {
     switch (connectionState.value) {
@@ -131,7 +165,7 @@ export const useSerialStore = defineStore('serial', () => {
     })
   })
 
-  const canConnect = computed(() => supported.value && !!selectedPort.value && connectionState.value !== 'connecting' && connectionState.value !== 'connected')
+  const canConnect = computed(() => supported.value && connectionState.value !== 'connecting' && connectionState.value !== 'connected')
   const canDisconnect = computed(() => connectionState.value === 'connected' || connectionState.value === 'connecting')
   const canSend = computed(() => connectionState.value === 'connected' && (commandInput.value.length > 0 || lineEnding.value !== 'none'))
   const queuedChunkCount = computed(() => pausedChunks.value.length)
@@ -185,12 +219,27 @@ export const useSerialStore = defineStore('serial', () => {
   }
 
   async function connect() {
+    clearError()
+
     if (!selectedPort.value) {
-      errorMessage.value = 'Select a serial port before connecting.'
-      return
+      try {
+        const port = await serialService.requestPort()
+        selectedPort.value = serialService.describePort(port)
+        connectionState.value = 'port-selected'
+        statusDetail.value = 'Serial port selected. Opening connection...'
+        addSystemEntry(`Selected ${selectedPort.value.label}.`)
+      } catch (error) {
+        if (serialService.isSelectionCanceled(error)) {
+          statusDetail.value = 'Serial port selection was canceled.'
+          return
+        }
+
+        errorMessage.value = serialService.formatError(error, 'Unable to request a serial port.')
+        statusDetail.value = 'Port request failed.'
+        return
+      }
     }
 
-    clearError()
     connectionState.value = 'connecting'
     statusDetail.value = `Opening ${selectedPort.value.label} at ${settings.baudRate} baud...`
 
@@ -518,3 +567,51 @@ export const useSerialStore = defineStore('serial', () => {
     clearOutput,
   }
 })
+
+function readStoredSerialSettings(): StoredSerialSettings {
+  const defaults: StoredSerialSettings = {
+    baudRate: 9600,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+    flowControl: 'none',
+    lineEnding: 'newline',
+  }
+
+  if (typeof window === 'undefined') {
+    return defaults
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(SERIAL_SETTINGS_STORAGE_KEY)
+    if (!rawValue) {
+      return defaults
+    }
+
+    const parsedValue = JSON.parse(rawValue) as Partial<StoredSerialSettings>
+
+    return {
+      baudRate: typeof parsedValue.baudRate === 'number' && baudRates.includes(parsedValue.baudRate) ? parsedValue.baudRate : defaults.baudRate,
+      dataBits: parsedValue.dataBits === 7 || parsedValue.dataBits === 8 ? parsedValue.dataBits : defaults.dataBits,
+      stopBits: parsedValue.stopBits === 1 || parsedValue.stopBits === 2 ? parsedValue.stopBits : defaults.stopBits,
+      parity: parsedValue.parity && parityOptions.includes(parsedValue.parity) ? parsedValue.parity : defaults.parity,
+      flowControl:
+        parsedValue.flowControl && flowControlOptions.includes(parsedValue.flowControl) ? parsedValue.flowControl : defaults.flowControl,
+      lineEnding:
+        parsedValue.lineEnding &&
+        ['none', 'newline', 'carriage-return', 'crlf'].includes(parsedValue.lineEnding)
+          ? parsedValue.lineEnding
+          : defaults.lineEnding,
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function writeStoredSerialSettings(settings: StoredSerialSettings) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(SERIAL_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+}

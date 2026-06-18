@@ -22,11 +22,11 @@ const emit = defineEmits<{
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        class="pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.28)]"
+        class="toast-card pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.28)]"
         :class="{
           'border-emerald-700 bg-emerald-500 text-white': toast.tone === 'success',
           'border-rose-900 bg-rose-600 text-white': toast.tone === 'error',
-          'border-slate-700 bg-slate-800 text-slate-100': toast.tone === 'info',
+          'toast-card-info': toast.tone === 'info',
         }"
       >
         <div

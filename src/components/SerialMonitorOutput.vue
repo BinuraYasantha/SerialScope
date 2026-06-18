@@ -49,8 +49,8 @@ watch(
 
 <template>
   <section class="tool-panel flex h-[30rem] min-h-[30rem] max-h-[30rem] flex-col lg:h-[36rem] lg:min-h-[36rem] lg:max-h-[36rem]">
-    <div class="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-      <div class="text-sm font-medium text-slate-200">Serial Output</div>
+    <div class="panel-divider flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <div class="app-title-text text-sm font-medium">Serial Output</div>
 
       <div class="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center">
         <label class="relative flex-1">
@@ -59,13 +59,9 @@ watch(
             :value="searchQuery"
             type="text"
             placeholder="Search or filter output"
-            class="monitor-input pl-10"
+            class="monitor-input"
             @input="emit('update:search-query', ($event.target as HTMLInputElement).value)"
           />
-          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-            <circle cx="8.5" cy="8.5" r="5.5" />
-            <path d="m13 13 4 4" stroke-linecap="round" />
-          </svg>
         </label>
 
         <div class="flex flex-wrap gap-2">
@@ -81,7 +77,7 @@ watch(
       </div>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-4 py-2 text-xs text-slate-500">
+    <div class="panel-divider app-subtle-text flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2 text-xs">
       <div class="flex flex-wrap items-center gap-3">
         <span>{{ totalVisibleLines }} visible lines</span>
         <span>RX {{ rxBytes.toLocaleString() }} bytes</span>
@@ -97,27 +93,34 @@ watch(
         <div
           v-for="entry in entries"
           :key="entry.id"
-          class="grid gap-2 rounded border px-3 py-2 text-sm lg:grid-cols-[6rem_3rem_minmax(0,1fr)]"
+          class="serial-entry grid gap-2 rounded border px-3 py-2 text-sm lg:grid-cols-[6rem_3rem_minmax(0,1fr)]"
           :class="{
-            'border-slate-800 bg-slate-950 text-slate-200': entry.direction === 'rx' || entry.direction === 'system',
-            'border-slate-700 bg-slate-900 text-slate-100': entry.direction === 'tx',
+            'serial-entry-rx': entry.direction === 'rx' || entry.direction === 'system',
+            'serial-entry-tx': entry.direction === 'tx',
             'opacity-70': !entry.complete,
           }"
         >
-          <div class="font-mono text-xs tracking-wide text-slate-500">
+          <div class="app-subtle-text font-mono text-xs tracking-wide">
             <span v-if="timestampsEnabled">{{ entry.timestampLabel }}</span>
             <span v-else>--:--:--</span>
           </div>
-          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{{ entry.direction }}</div>
+          <div class="app-subtle-text text-xs font-semibold uppercase tracking-[0.14em]">{{ entry.direction }}</div>
           <pre class="serial-pre">{{ entry.text || ' ' }}</pre>
         </div>
       </div>
 
       <div v-else class="flex h-full min-h-64 items-center justify-center">
-        <div class="w-full max-w-sm rounded-xl bg-[#3b3b3b] px-8 py-12 text-center text-sm leading-6 text-slate-100">
-          <div class="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded bg-[#4a4a4a] text-lg text-slate-200">⌁</div>
-          <div class="text-xl font-semibold text-white">No device connected</div>
-          <div class="mt-2 text-sm text-slate-200">{{ emptyMessage }}</div>
+        <div class="serial-empty-card w-full max-w-sm rounded-xl px-8 py-12 text-center text-sm leading-6">
+          <div class="serial-empty-icon mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-xl">
+            <svg viewBox="0 0 64 64" class="h-10 w-10" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M24 14h16v18h6a4 4 0 0 1 4 4v9a5 5 0 0 1-5 5H19a5 5 0 0 1-5-5v-9a4 4 0 0 1 4-4h6V14Z" />
+              <path d="M24 23h16" opacity="0.55" />
+              <path d="M28 50v4M36 50v4" />
+              <path d="m21 19 22 22" />
+            </svg>
+          </div>
+          <div class="app-title-text text-xl font-semibold">No device connected</div>
+          <div class="app-muted-text mt-2 text-sm">{{ emptyMessage }}</div>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ defineProps<{
   portLabel: string
   statusLabel: string
   statusTone: string
+  connectionState: 'unsupported' | 'idle' | 'port-selected' | 'connecting' | 'connected' | 'disconnecting'
   baudRate: number
   baudRates: number[]
   dataBits: 7 | 8
@@ -36,8 +37,24 @@ const emit = defineEmits<{
   <header class="tool-panel px-4 py-3">
     <div class="flex flex-wrap items-center gap-3">
       <button type="button" class="tool-button tool-button-secondary" :disabled="busy" @click="emit('choose-port')">Select Port</button>
-      <button type="button" class="tool-button tool-button-primary" :disabled="!canConnect" @click="emit('connect')">Connect</button>
-      <button type="button" class="tool-button tool-button-danger" :disabled="!canDisconnect" @click="emit('disconnect')">Disconnect</button>
+      <button
+        v-if="connectionState === 'connected' || connectionState === 'disconnecting'"
+        type="button"
+        class="tool-button tool-button-danger"
+        :disabled="!canDisconnect"
+        @click="emit('disconnect')"
+      >
+        {{ connectionState === 'disconnecting' ? 'Disconnecting...' : 'Disconnect' }}
+      </button>
+      <button
+        v-else
+        type="button"
+        class="tool-button tool-button-primary"
+        :disabled="!canConnect"
+        @click="emit('connect')"
+      >
+        {{ connectionState === 'connecting' ? 'Connecting...' : 'Connect' }}
+      </button>
 
       <label class="floating-field min-w-[10rem]">
         <span class="floating-field-label">Baud rate</span>
@@ -99,7 +116,7 @@ const emit = defineEmits<{
         </select>
       </label>
 
-      <div class="min-w-[10rem] flex-1 truncate text-sm text-slate-400">{{ portLabel }}</div>
+      <div class="app-muted-text min-w-[10rem] flex-1 truncate text-sm">{{ portLabel }}</div>
 
       <div
         class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"

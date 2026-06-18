@@ -29,7 +29,7 @@ function handleKeydown(event: KeyboardEvent) {
   <section class="tool-panel p-4">
     <div class="flex flex-col gap-4 xl:flex-row xl:items-end">
       <label class="flex-1 space-y-2">
-        <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Command</span>
+        <span class="app-section-label text-[11px] font-semibold uppercase tracking-[0.18em]">Command</span>
         <textarea
           v-model="commandInput"
           rows="3"
@@ -42,7 +42,7 @@ function handleKeydown(event: KeyboardEvent) {
 
       <div class="grid gap-3 xl:w-72">
         <label class="space-y-2">
-          <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Line Ending</span>
+          <span class="app-section-label text-[11px] font-semibold uppercase tracking-[0.18em]">Line Ending</span>
           <select v-model="lineEnding" class="monitor-select" :disabled="connectionState !== 'connected'">
             <option value="none">No line ending</option>
             <option value="newline">New line \n</option>
