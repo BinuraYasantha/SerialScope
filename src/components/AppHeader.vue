@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SerialFlowControl, SerialParity } from '../types/serial.types'
+import type { SerialParity } from '../types/serial.types'
 
 defineProps<{
   portLabel: string
@@ -14,8 +14,6 @@ defineProps<{
   stopBitsOptions: readonly (1 | 2)[]
   parity: SerialParity
   parityOptions: readonly SerialParity[]
-  flowControl: SerialFlowControl
-  flowControlOptions: readonly SerialFlowControl[]
   canConnect: boolean
   canDisconnect: boolean
   busy: boolean
@@ -27,7 +25,6 @@ const emit = defineEmits<{
   'update:data-bits': [value: 7 | 8]
   'update:stop-bits': [value: 1 | 2]
   'update:parity': [value: SerialParity]
-  'update:flow-control': [value: SerialFlowControl]
   connect: []
   disconnect: []
 }>()
@@ -101,18 +98,6 @@ const emit = defineEmits<{
           @change="emit('update:parity', ($event.target as HTMLSelectElement).value as SerialParity)"
         >
           <option v-for="value in parityOptions" :key="value" :value="value">{{ value }}</option>
-        </select>
-      </label>
-
-      <label class="floating-field min-w-[10rem]">
-        <span class="floating-field-label">Flow Control</span>
-        <select
-          :value="flowControl"
-          class="monitor-select floating-select"
-          :disabled="busy"
-          @change="emit('update:flow-control', ($event.target as HTMLSelectElement).value as SerialFlowControl)"
-        >
-          <option v-for="value in flowControlOptions" :key="value" :value="value">{{ value }}</option>
         </select>
       </label>
 

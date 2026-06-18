@@ -2,7 +2,6 @@
 import { onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppHeader from './components/AppHeader.vue'
-import DeviceInfoPage from './components/DeviceInfoPage.vue'
 import SettingsPage from './components/SettingsPage.vue'
 import SerialCommandInput from './components/SerialCommandInput.vue'
 import SerialMonitorOutput from './components/SerialMonitorOutput.vue'
@@ -34,14 +33,15 @@ const {
   txBytes,
 } = storeToRefs(store)
 
-type SectionId = 'Serial Monitor' | 'Settings' | 'Device Info'
+type SectionId = 'Serial Monitor' | 'Settings'
 
-const sectionItems: SectionId[] = ['Serial Monitor', 'Settings', 'Device Info']
-const resourceItems = ['Tutorial', 'Buy Me a Coffee', 'Get Help']
+const sectionItems: SectionId[] = ['Serial Monitor', 'Settings']
+const resourceItems = ['Tutorial']
 const toasts = ref<ToastItem[]>([])
 const unsupportedToastShown = ref(false)
 const selectedTheme = ref<AppThemeId>(readStoredTheme())
 const activeSection = ref<SectionId>('Serial Monitor')
+const lastConnectionState = ref(connectionState.value)
 
 applyTheme(selectedTheme.value)
 
@@ -74,6 +74,20 @@ watch(
   },
   { immediate: true },
 )
+
+watch(connectionState, (state) => {
+  const previousState = lastConnectionState.value
+
+  if (state === 'connected' && previousState !== 'connected') {
+    addToast('success', `Connected to ${selectedPortLabel.value} at ${settings.value.baudRate} baud.`, 2800)
+  }
+
+  if ((state === 'port-selected' || state === 'idle') && previousState === 'disconnecting') {
+    addToast('info', 'Serial connection closed.', 2200)
+  }
+
+  lastConnectionState.value = state
+})
 
 async function copyOutput() {
   try {
@@ -184,20 +198,6 @@ function applyTheme(theme: AppThemeId) {
                   <circle cx="12" cy="12" r="3.2" />
                   <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 0 1 0 1.7l-1.6 1.6a1.2 1.2 0 0 1-1.7 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1.2 1.2 0 0 1-1.2 1.2h-2.2A1.2 1.2 0 0 1 10 20v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 0 1-1.7 0L4.9 17.6a1.2 1.2 0 0 1 0-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1.2 1.2 0 0 1-1.2-1.2v-2.2A1.2 1.2 0 0 1 4 9.5h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 0 1 0-1.7l1.6-1.6a1.2 1.2 0 0 1 1.7 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4A1.2 1.2 0 0 1 11.1 2.8h2.2A1.2 1.2 0 0 1 14.5 4v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 0 1 1.7 0l1.6 1.6a1.2 1.2 0 0 1 0 1.7l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2A1.2 1.2 0 0 1 21.2 11v2.2a1.2 1.2 0 0 1-1.2 1.2h-.2a1 1 0 0 0-.9.6Z" />
                 </svg>
-                <svg
-                  v-else
-                  viewBox="0 0 24 24"
-                  class="sidebar-item-icon-svg"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="5" y="4" width="14" height="16" rx="2" />
-                  <path d="M9 9h6M9 13h6" />
-                </svg>
               </span>
               <span>{{ item }}</span>
             </button>
@@ -208,7 +208,21 @@ function applyTheme(theme: AppThemeId) {
           <div class="app-section-label px-2 text-xs font-semibold uppercase tracking-[0.18em]">Resources</div>
           <nav class="mt-3 space-y-1">
             <button v-for="item in resourceItems" :key="item" type="button" class="sidebar-item">
-              <span class="sidebar-item-icon">•</span>
+              <span class="sidebar-item-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  class="sidebar-item-icon-svg"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="4" y="5" width="16" height="14" rx="2" />
+                  <path d="m10 10 4 2-4 2Z" />
+                </svg>
+              </span>
               <span>{{ item }}</span>
             </button>
           </nav>
@@ -230,17 +244,14 @@ function applyTheme(theme: AppThemeId) {
             :stop-bits-options="store.stopBitsOptions"
             :parity="settings.parity"
             :parity-options="store.parityOptions"
-            :flow-control="settings.flowControl"
-            :flow-control-options="store.flowControlOptions"
             :can-connect="canConnect"
             :can-disconnect="canDisconnect"
             :busy="connectionState === 'connecting' || connectionState === 'disconnecting'"
             @choose-port="store.choosePort"
-            @update:baud-rate="settings.baudRate = $event"
-            @update:data-bits="settings.dataBits = $event"
-            @update:stop-bits="settings.stopBits = $event"
-            @update:parity="settings.parity = $event"
-            @update:flow-control="settings.flowControl = $event"
+            @update:baud-rate="store.updateBaudRate"
+            @update:data-bits="store.updateDataBits"
+            @update:stop-bits="store.updateStopBits"
+            @update:parity="store.updateParity"
             @connect="store.connect"
             @disconnect="store.disconnect"
           />
@@ -275,11 +286,6 @@ function applyTheme(theme: AppThemeId) {
             :selected-theme="selectedTheme"
             :themes="APP_THEMES"
             @update:theme="selectedTheme = $event"
-          />
-
-          <DeviceInfoPage
-            v-else
-            :port-label="selectedPortLabel"
           />
         </div>
       </main>

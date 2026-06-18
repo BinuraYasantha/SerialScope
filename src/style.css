@@ -35,6 +35,15 @@
   --color-field-label-bg: var(--color-panel-bg);
   --color-toast-info-bg: #1f2937;
   --color-toast-info-border: #475569;
+  --color-badge-rx-bg: rgba(14, 165, 233, 0.16);
+  --color-badge-rx-border: rgba(56, 189, 248, 0.34);
+  --color-badge-rx-text: #7dd3fc;
+  --color-badge-tx-bg: rgba(59, 130, 246, 0.18);
+  --color-badge-tx-border: rgba(96, 165, 250, 0.36);
+  --color-badge-tx-text: #93c5fd;
+  --color-badge-system-bg: rgba(148, 163, 184, 0.16);
+  --color-badge-system-border: rgba(148, 163, 184, 0.3);
+  --color-badge-system-text: #cbd5e1;
   background-color: var(--color-app-bg);
   color: var(--color-text);
 }
@@ -67,6 +76,15 @@
   --color-sidebar-active-border: rgba(16, 185, 129, 0.24);
   --color-toast-info-bg: #1f2937;
   --color-toast-info-border: #475569;
+  --color-badge-rx-bg: rgba(20, 184, 166, 0.16);
+  --color-badge-rx-border: rgba(45, 212, 191, 0.32);
+  --color-badge-rx-text: #99f6e4;
+  --color-badge-tx-bg: rgba(16, 185, 129, 0.18);
+  --color-badge-tx-border: rgba(52, 211, 153, 0.34);
+  --color-badge-tx-text: #86efac;
+  --color-badge-system-bg: rgba(148, 163, 184, 0.16);
+  --color-badge-system-border: rgba(148, 163, 184, 0.28);
+  --color-badge-system-text: #cbd5e1;
 }
 
 :root[data-theme='graphite-cyan'] {
@@ -97,6 +115,15 @@
   --color-sidebar-active-border: rgba(6, 182, 212, 0.24);
   --color-toast-info-bg: #1f2937;
   --color-toast-info-border: #4b5563;
+  --color-badge-rx-bg: rgba(34, 211, 238, 0.15);
+  --color-badge-rx-border: rgba(103, 232, 249, 0.32);
+  --color-badge-rx-text: #a5f3fc;
+  --color-badge-tx-bg: rgba(6, 182, 212, 0.18);
+  --color-badge-tx-border: rgba(34, 211, 238, 0.34);
+  --color-badge-tx-text: #67e8f9;
+  --color-badge-system-bg: rgba(115, 115, 115, 0.16);
+  --color-badge-system-border: rgba(163, 163, 163, 0.3);
+  --color-badge-system-text: #d4d4d8;
 }
 
 :root[data-theme='navy-amber'] {
@@ -127,6 +154,15 @@
   --color-sidebar-active-border: rgba(245, 158, 11, 0.24);
   --color-toast-info-bg: #1e293b;
   --color-toast-info-border: #475569;
+  --color-badge-rx-bg: rgba(56, 189, 248, 0.14);
+  --color-badge-rx-border: rgba(125, 211, 252, 0.28);
+  --color-badge-rx-text: #bae6fd;
+  --color-badge-tx-bg: rgba(245, 158, 11, 0.18);
+  --color-badge-tx-border: rgba(251, 191, 36, 0.34);
+  --color-badge-tx-text: #fde68a;
+  --color-badge-system-bg: rgba(148, 163, 184, 0.16);
+  --color-badge-system-border: rgba(148, 163, 184, 0.28);
+  --color-badge-system-text: #cbd5e1;
 }
 
 :root[data-theme='stone-indigo'] {
@@ -157,6 +193,15 @@
   --color-sidebar-active-border: rgba(99, 102, 241, 0.24);
   --color-toast-info-bg: #27272a;
   --color-toast-info-border: #52525b;
+  --color-badge-rx-bg: rgba(129, 140, 248, 0.16);
+  --color-badge-rx-border: rgba(165, 180, 252, 0.34);
+  --color-badge-rx-text: #c7d2fe;
+  --color-badge-tx-bg: rgba(99, 102, 241, 0.2);
+  --color-badge-tx-border: rgba(129, 140, 248, 0.36);
+  --color-badge-tx-text: #a5b4fc;
+  --color-badge-system-bg: rgba(161, 161, 170, 0.16);
+  --color-badge-system-border: rgba(161, 161, 170, 0.3);
+  --color-badge-system-text: #e4e4e7;
 }
 
 html,
@@ -434,6 +479,43 @@ textarea {
 
 .serial-entry-tx {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-console-bg));
+}
+
+.serial-entry-system {
+  background: color-mix(in srgb, var(--color-console-bg) 84%, white 7%);
+}
+
+.serial-direction-badge {
+  display: inline-flex;
+  min-width: 3.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.serial-direction-badge-rx {
+  border-color: var(--color-badge-rx-border);
+  background: var(--color-badge-rx-bg);
+  color: var(--color-badge-rx-text);
+}
+
+.serial-direction-badge-tx {
+  border-color: var(--color-badge-tx-border);
+  background: var(--color-badge-tx-bg);
+  color: var(--color-badge-tx-text);
+}
+
+.serial-direction-badge-system {
+  border-color: var(--color-badge-system-border);
+  background: var(--color-badge-system-bg);
+  color: var(--color-badge-system-text);
 }
 
 .serial-empty-card {

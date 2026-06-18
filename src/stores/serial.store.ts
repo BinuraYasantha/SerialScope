@@ -17,7 +17,6 @@ const SERIAL_SETTINGS_STORAGE_KEY = 'serialscope-serial-settings'
 const dataBitsOptions = [7, 8] as const
 const stopBitsOptions = [1, 2] as const
 const parityOptions = ['none', 'even', 'odd'] as const
-const flowControlOptions = ['none', 'hardware'] as const
 
 interface PendingLine {
   direction: MonitorDirection
@@ -31,7 +30,6 @@ interface StoredSerialSettings {
   dataBits: 7 | 8
   stopBits: 1 | 2
   parity: 'none' | 'even' | 'odd'
-  flowControl: 'none' | 'hardware'
   lineEnding: SerialLineEnding
 }
 
@@ -43,7 +41,7 @@ export const useSerialStore = defineStore('serial', () => {
     dataBits: persistedSettings.dataBits,
     stopBits: persistedSettings.stopBits,
     parity: persistedSettings.parity,
-    flowControl: persistedSettings.flowControl,
+    flowControl: 'none',
   })
 
   const supported = ref(true)
@@ -82,7 +80,6 @@ export const useSerialStore = defineStore('serial', () => {
         dataBits: settings.dataBits,
         stopBits: settings.stopBits,
         parity: settings.parity,
-        flowControl: settings.flowControl,
         lineEnding: lineEnding.value,
       })
     },
@@ -201,47 +198,43 @@ export const useSerialStore = defineStore('serial', () => {
   async function choosePort() {
     clearError()
 
-    try {
-      const port = await serialService.requestPort()
-      selectedPort.value = serialService.describePort(port)
-      connectionState.value = 'port-selected'
-      statusDetail.value = 'Serial port selected. Connect when ready.'
-      addSystemEntry(`Selected ${selectedPort.value.label}.`)
-    } catch (error) {
-      if (serialService.isSelectionCanceled(error)) {
-        statusDetail.value = 'Serial port selection was canceled.'
-        return
-      }
+    const portSelected = await requestAndStorePort()
 
-      errorMessage.value = serialService.formatError(error, 'Unable to request a serial port.')
-      statusDetail.value = 'Port request failed.'
+    if (!portSelected) {
+      return
     }
+
+    await openConnection()
   }
 
   async function connect() {
     clearError()
 
     if (!selectedPort.value) {
-      try {
-        const port = await serialService.requestPort()
-        selectedPort.value = serialService.describePort(port)
-        connectionState.value = 'port-selected'
-        statusDetail.value = 'Serial port selected. Opening connection...'
-        addSystemEntry(`Selected ${selectedPort.value.label}.`)
-      } catch (error) {
-        if (serialService.isSelectionCanceled(error)) {
-          statusDetail.value = 'Serial port selection was canceled.'
-          return
-        }
+      const portSelected = await requestAndStorePort()
 
-        errorMessage.value = serialService.formatError(error, 'Unable to request a serial port.')
-        statusDetail.value = 'Port request failed.'
+      if (!portSelected) {
         return
       }
     }
 
+    await openConnection()
+  }
+
+  async function openConnection(reason: 'connect' | 'settings-update' = 'connect') {
+    if (!selectedPort.value) {
+      errorMessage.value = 'Select a serial port before connecting.'
+      statusDetail.value = 'No serial port selected.'
+      connectionState.value = 'idle'
+      return
+    }
+
+    const portLabel = selectedPort.value.label
     connectionState.value = 'connecting'
-    statusDetail.value = `Opening ${selectedPort.value.label} at ${settings.baudRate} baud...`
+    statusDetail.value =
+      reason === 'settings-update'
+        ? `Applying ${formatConnectionProfile()} on ${portLabel}...`
+        : `Opening ${portLabel} at ${settings.baudRate} baud...`
 
     try {
       await serialService.connect(settings, {
@@ -252,12 +245,32 @@ export const useSerialStore = defineStore('serial', () => {
 
       connectionState.value = 'connected'
       statusDetail.value = `Live at ${settings.baudRate} baud with ${settings.dataBits}${settings.parity === 'none' ? 'N' : settings.parity[0].toUpperCase()}${settings.stopBits}.`
-      addSystemEntry(`Connected to ${selectedPort.value.label}.`)
+      addSystemEntry(reason === 'settings-update' ? `Applied serial settings: ${formatConnectionProfile()}.` : `Connected to ${portLabel}.`)
     } catch (error) {
       connectionState.value = selectedPort.value ? 'port-selected' : 'idle'
       errorMessage.value = serialService.formatError(error, 'Unable to open the serial connection.')
       statusDetail.value = 'Connection failed.'
       addSystemEntry('Connection attempt failed.')
+    }
+  }
+
+  async function requestAndStorePort() {
+    try {
+      const port = await serialService.requestPort()
+      selectedPort.value = serialService.describePort(port)
+      connectionState.value = 'port-selected'
+      statusDetail.value = 'Serial port selected. Opening connection...'
+      addSystemEntry(`Selected ${selectedPort.value.label}.`)
+      return true
+    } catch (error) {
+      if (serialService.isSelectionCanceled(error)) {
+        statusDetail.value = 'Serial port selection was canceled.'
+        return false
+      }
+
+      errorMessage.value = serialService.formatError(error, 'Unable to request a serial port.')
+      statusDetail.value = 'Port request failed.'
+      return false
     }
   }
 
@@ -515,6 +528,58 @@ export const useSerialStore = defineStore('serial', () => {
     errorMessage.value = ''
   }
 
+  async function updateBaudRate(value: number) {
+    if (settings.baudRate === value) {
+      return
+    }
+
+    settings.baudRate = value
+    await applyLiveSettings()
+  }
+
+  async function updateDataBits(value: 7 | 8) {
+    if (settings.dataBits === value) {
+      return
+    }
+
+    settings.dataBits = value
+    await applyLiveSettings()
+  }
+
+  async function updateStopBits(value: 1 | 2) {
+    if (settings.stopBits === value) {
+      return
+    }
+
+    settings.stopBits = value
+    await applyLiveSettings()
+  }
+
+  async function updateParity(value: 'none' | 'even' | 'odd') {
+    if (settings.parity === value) {
+      return
+    }
+
+    settings.parity = value
+    await applyLiveSettings()
+  }
+
+  async function applyLiveSettings() {
+    if (connectionState.value !== 'connected') {
+      return
+    }
+
+    clearError()
+    addSystemEntry(`Updating serial settings to ${formatConnectionProfile()}.`)
+    await openConnection('settings-update')
+  }
+
+  function formatConnectionProfile() {
+    const parityCode = settings.parity === 'none' ? 'N' : settings.parity[0].toUpperCase()
+
+    return `${settings.baudRate} baud, ${settings.dataBits}${parityCode}${settings.stopBits}, no flow control`
+  }
+
   function createId() {
     return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
   }
@@ -534,7 +599,6 @@ export const useSerialStore = defineStore('serial', () => {
     disconnect,
     displayEntries,
     errorMessage,
-    flowControlOptions,
     historyCursor,
     initialize,
     lineEnding,
@@ -561,6 +625,10 @@ export const useSerialStore = defineStore('serial', () => {
     toggleTimestamps,
     totalVisibleLines,
     txBytes,
+    updateBaudRate,
+    updateDataBits,
+    updateParity,
+    updateStopBits,
     buildLogText,
     choosePort,
     clearError,
@@ -574,7 +642,6 @@ function readStoredSerialSettings(): StoredSerialSettings {
     dataBits: 8,
     stopBits: 1,
     parity: 'none',
-    flowControl: 'none',
     lineEnding: 'newline',
   }
 
@@ -595,8 +662,6 @@ function readStoredSerialSettings(): StoredSerialSettings {
       dataBits: parsedValue.dataBits === 7 || parsedValue.dataBits === 8 ? parsedValue.dataBits : defaults.dataBits,
       stopBits: parsedValue.stopBits === 1 || parsedValue.stopBits === 2 ? parsedValue.stopBits : defaults.stopBits,
       parity: parsedValue.parity && parityOptions.includes(parsedValue.parity) ? parsedValue.parity : defaults.parity,
-      flowControl:
-        parsedValue.flowControl && flowControlOptions.includes(parsedValue.flowControl) ? parsedValue.flowControl : defaults.flowControl,
       lineEnding:
         parsedValue.lineEnding &&
         ['none', 'newline', 'carriage-return', 'crlf'].includes(parsedValue.lineEnding)

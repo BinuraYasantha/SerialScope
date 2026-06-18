@@ -62,12 +62,6 @@ const {
           </select>
         </label>
 
-        <label class="space-y-2 sm:col-span-2">
-          <span class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">Flow Control</span>
-          <select v-model="settings.flowControl" class="monitor-select" :disabled="connectionState === 'connected' || connectionState === 'connecting'">
-            <option v-for="value in store.flowControlOptions" :key="value" :value="value">{{ value }}</option>
-          </select>
-        </label>
       </div>
     </div>
 

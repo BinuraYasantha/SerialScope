@@ -122,7 +122,6 @@ class SerialService {
       }
     }
 
-    this.isManualDisconnect = false
   }
 
   async send(payload: string) {

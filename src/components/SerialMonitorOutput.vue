@@ -93,10 +93,11 @@ watch(
         <div
           v-for="entry in entries"
           :key="entry.id"
-          class="serial-entry grid gap-2 rounded border px-3 py-2 text-sm lg:grid-cols-[6rem_3rem_minmax(0,1fr)]"
+          class="serial-entry grid gap-2 rounded border px-3 py-2 text-sm lg:grid-cols-[6rem_5rem_minmax(0,1fr)]"
           :class="{
-            'serial-entry-rx': entry.direction === 'rx' || entry.direction === 'system',
+            'serial-entry-rx': entry.direction === 'rx',
             'serial-entry-tx': entry.direction === 'tx',
+            'serial-entry-system': entry.direction === 'system',
             'opacity-70': !entry.complete,
           }"
         >
@@ -104,7 +105,18 @@ watch(
             <span v-if="timestampsEnabled">{{ entry.timestampLabel }}</span>
             <span v-else>--:--:--</span>
           </div>
-          <div class="app-subtle-text text-xs font-semibold uppercase tracking-[0.14em]">{{ entry.direction }}</div>
+          <div>
+            <span
+              class="serial-direction-badge"
+              :class="{
+                'serial-direction-badge-rx': entry.direction === 'rx',
+                'serial-direction-badge-tx': entry.direction === 'tx',
+                'serial-direction-badge-system': entry.direction === 'system',
+              }"
+            >
+              {{ entry.direction }}
+            </span>
+          </div>
           <pre class="serial-pre">{{ entry.text || ' ' }}</pre>
         </div>
       </div>
