@@ -124,13 +124,13 @@ class SerialService {
 
   }
 
-  async send(payload: string) {
+  async send(payload: string | Uint8Array) {
     if (!this.port?.writable) {
       throw new Error('Connect to a serial port before sending data.')
     }
 
     const writer = this.port.writable.getWriter()
-    const data = new TextEncoder().encode(payload)
+    const data = typeof payload === 'string' ? new TextEncoder().encode(payload) : payload
 
     try {
       await writer.write(data)

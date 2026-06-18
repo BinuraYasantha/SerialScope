@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import type { AppThemeId, AppThemeOption } from '../themes/appThemes'
 import type { SerialParity } from '../types/serial.types'
 
 defineProps<{
   portLabel: string
-  statusLabel: string
-  statusTone: string
   connectionState: 'unsupported' | 'idle' | 'port-selected' | 'connecting' | 'connected' | 'disconnecting'
+  selectedTheme: AppThemeId
+  themes: AppThemeOption[]
   baudRate: number
   baudRates: number[]
   dataBits: 7 | 8
@@ -25,6 +26,7 @@ const emit = defineEmits<{
   'update:data-bits': [value: 7 | 8]
   'update:stop-bits': [value: 1 | 2]
   'update:parity': [value: SerialParity]
+  'update:theme': [value: AppThemeId]
   connect: []
   disconnect: []
 }>()
@@ -101,21 +103,26 @@ const emit = defineEmits<{
         </select>
       </label>
 
-      <div class="app-muted-text min-w-[10rem] flex-1 truncate text-sm">{{ portLabel }}</div>
-
-      <div
-        class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
-        :class="{
-          'border-emerald-500/40 bg-emerald-500/10 text-emerald-300': statusTone === 'emerald',
-          'border-amber-500/40 bg-amber-500/10 text-amber-300': statusTone === 'amber',
-          'border-sky-500/40 bg-sky-500/10 text-sky-300': statusTone === 'sky',
-          'border-rose-500/40 bg-rose-500/10 text-rose-300': statusTone === 'rose',
-          'border-slate-600 bg-slate-800 text-slate-300': statusTone === 'slate',
-        }"
-      >
-        <span class="inline-flex h-2 w-2 rounded-full bg-current" />
-        {{ statusLabel }}
+      <div class="min-w-[10rem] flex-1 truncate text-sm">
+        <div class="flex items-center gap-2">
+          <span
+            class="inline-flex h-2 w-2 shrink-0 rounded-full"
+            :class="connectionState === 'connected' ? 'bg-emerald-400' : 'bg-rose-400'"
+          />
+          <span class="app-muted-text truncate">{{ portLabel }}</span>
+        </div>
       </div>
+
+      <label class="floating-field min-w-[11rem]">
+        <span class="floating-field-label">Theme</span>
+        <select
+          :value="selectedTheme"
+          class="monitor-select floating-select"
+          @change="emit('update:theme', ($event.target as HTMLSelectElement).value as AppThemeId)"
+        >
+          <option v-for="theme in themes" :key="theme.id" :value="theme.id">{{ theme.label }}</option>
+        </select>
+      </label>
     </div>
   </header>
 </template>

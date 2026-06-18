@@ -2,7 +2,6 @@
 import { onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppHeader from './components/AppHeader.vue'
-import SettingsPage from './components/SettingsPage.vue'
 import SerialCommandInput from './components/SerialCommandInput.vue'
 import SerialMonitorOutput from './components/SerialMonitorOutput.vue'
 import ToastStack from './components/ToastStack.vue'
@@ -23,19 +22,18 @@ const {
   rxBytes,
   searchQuery,
   selectedPortLabel,
-  statusLabel,
-  statusTone,
   supportMessage,
   supported,
   settings,
   timestampsEnabled,
   totalVisibleLines,
   txBytes,
+  uiNotice,
 } = storeToRefs(store)
 
-type SectionId = 'Serial Monitor' | 'Settings'
+type SectionId = 'Serial Monitor'
 
-const sectionItems: SectionId[] = ['Serial Monitor', 'Settings']
+const sectionItems: SectionId[] = ['Serial Monitor']
 const resourceItems = ['Tutorial']
 const toasts = ref<ToastItem[]>([])
 const unsupportedToastShown = ref(false)
@@ -87,6 +85,15 @@ watch(connectionState, (state) => {
   }
 
   lastConnectionState.value = state
+})
+
+watch(uiNotice, (notice) => {
+  if (!notice) {
+    return
+  }
+
+  addToast(notice.tone, notice.message, 2600)
+  store.clearUiNotice()
 })
 
 async function copyOutput() {
@@ -153,7 +160,17 @@ function applyTheme(theme: AppThemeId) {
     <div class="grid min-h-screen lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside class="app-sidebar border-r">
         <div class="px-4 py-4">
-          <div class="app-title-text text-xl font-semibold">SerialScope</div>
+          <div class="flex items-center gap-3">
+            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-panel-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <svg viewBox="0 0 64 64" class="h-7 w-7" fill="none" aria-hidden="true">
+                <rect x="8" y="8" width="48" height="48" rx="12" fill="#0F172A" />
+                <rect x="8" y="8" width="48" height="48" rx="12" stroke="#38BDF8" stroke-width="3" />
+                <path d="M22 25 30 32 22 39" stroke="#E0F2FE" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M36 39H44" stroke="#E0F2FE" stroke-width="5" stroke-linecap="round" />
+              </svg>
+            </span>
+            <div class="app-title-text text-xl font-semibold">SerialScope</div>
+          </div>
           <div class="app-muted-text mt-1 text-sm">v0.0.1</div>
         </div>
 
@@ -183,20 +200,6 @@ function applyTheme(theme: AppThemeId) {
                   <path d="M4 12h8" />
                   <path d="m8 8 4 4-4 4" />
                   <path d="M15 18h5" />
-                </svg>
-                <svg
-                  v-else-if="item === 'Settings'"
-                  viewBox="0 0 24 24"
-                  class="sidebar-item-icon-svg"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="3.2" />
-                  <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 0 1 0 1.7l-1.6 1.6a1.2 1.2 0 0 1-1.7 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1.2 1.2 0 0 1-1.2 1.2h-2.2A1.2 1.2 0 0 1 10 20v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 0 1-1.7 0L4.9 17.6a1.2 1.2 0 0 1 0-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1.2 1.2 0 0 1-1.2-1.2v-2.2A1.2 1.2 0 0 1 4 9.5h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 0 1 0-1.7l1.6-1.6a1.2 1.2 0 0 1 1.7 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4A1.2 1.2 0 0 1 11.1 2.8h2.2A1.2 1.2 0 0 1 14.5 4v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 0 1 1.7 0l1.6 1.6a1.2 1.2 0 0 1 0 1.7l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2A1.2 1.2 0 0 1 21.2 11v2.2a1.2 1.2 0 0 1-1.2 1.2h-.2a1 1 0 0 0-.9.6Z" />
                 </svg>
               </span>
               <span>{{ item }}</span>
@@ -233,9 +236,9 @@ function applyTheme(theme: AppThemeId) {
         <div class="app-topbar app-divider border-b px-4 py-3">
           <AppHeader
             :port-label="selectedPortLabel"
-            :status-label="statusLabel"
-            :status-tone="statusTone"
             :connection-state="connectionState"
+            :selected-theme="selectedTheme"
+            :themes="APP_THEMES"
             :baud-rate="settings.baudRate"
             :baud-rates="store.baudRates"
             :data-bits="settings.dataBits"
@@ -252,13 +255,14 @@ function applyTheme(theme: AppThemeId) {
             @update:data-bits="store.updateDataBits"
             @update:stop-bits="store.updateStopBits"
             @update:parity="store.updateParity"
+            @update:theme="selectedTheme = $event"
             @connect="store.connect"
             @disconnect="store.disconnect"
           />
         </div>
 
         <div class="space-y-4 p-4">
-          <div v-if="activeSection === 'Serial Monitor'" class="space-y-4">
+          <div v-if="activeSection === 'Serial Monitor'" class="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <SerialMonitorOutput
               :entries="displayEntries"
               :auto-scroll="autoScroll"
@@ -281,12 +285,6 @@ function applyTheme(theme: AppThemeId) {
             <SerialCommandInput />
           </div>
 
-          <SettingsPage
-            v-else-if="activeSection === 'Settings'"
-            :selected-theme="selectedTheme"
-            :themes="APP_THEMES"
-            @update:theme="selectedTheme = $event"
-          />
         </div>
       </main>
     </div>

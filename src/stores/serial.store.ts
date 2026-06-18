@@ -4,15 +4,18 @@ import { serialService } from '../services/serial.service'
 import type {
   MonitorDirection,
   MonitorEntry,
+  SerialCommandPreset,
   SerialConnectionState,
   SerialDataChunk,
   SerialLineEnding,
   SerialPortSummary,
   SerialSettings,
+  SerialUiNotice,
 } from '../types/serial.types'
 
 const baudRates = [2400, 4800, 9600, 19200, 31250, 38400, 57600, 74880, 115200, 230400, 250000]
 const SERIAL_SETTINGS_STORAGE_KEY = 'serialscope-serial-settings'
+const COMMAND_PRESETS_STORAGE_KEY = 'serialscope-command-presets'
 
 const dataBitsOptions = [7, 8] as const
 const stopBitsOptions = [1, 2] as const
@@ -33,8 +36,14 @@ interface StoredSerialSettings {
   lineEnding: SerialLineEnding
 }
 
+interface ImportedCommandPresetsResult {
+  importedCount: number
+  skippedCount: number
+}
+
 export const useSerialStore = defineStore('serial', () => {
   const persistedSettings = readStoredSerialSettings()
+  const persistedCommandPresets = readStoredCommandPresets()
 
   const settings = reactive<SerialSettings>({
     baudRate: persistedSettings.baudRate,
@@ -54,10 +63,14 @@ export const useSerialStore = defineStore('serial', () => {
   const pendingLine = ref<PendingLine | null>(null)
   const pausedChunks = ref<SerialDataChunk[]>([])
   const commandInput = ref('')
+  const presetNameInput = ref('')
   const commandHistory = ref<string[]>([])
+  const commandPresets = ref<SerialCommandPreset[]>(persistedCommandPresets)
+  const editingPresetId = ref<string | null>(null)
   const historyCursor = ref(-1)
   const draftCommand = ref('')
   const lineEnding = ref<SerialLineEnding>(persistedSettings.lineEnding)
+  const uiNotice = ref<SerialUiNotice | null>(null)
   const searchQuery = ref('')
   const autoScroll = ref(true)
   const timestampsEnabled = ref(true)
@@ -84,6 +97,14 @@ export const useSerialStore = defineStore('serial', () => {
       })
     },
     { immediate: true },
+  )
+
+  watch(
+    commandPresets,
+    (presets) => {
+      writeStoredCommandPresets(presets)
+    },
+    { deep: true, immediate: true },
   )
 
   const statusLabel = computed(() => {
@@ -165,6 +186,9 @@ export const useSerialStore = defineStore('serial', () => {
   const canConnect = computed(() => supported.value && connectionState.value !== 'connecting' && connectionState.value !== 'connected')
   const canDisconnect = computed(() => connectionState.value === 'connected' || connectionState.value === 'connecting')
   const canSend = computed(() => connectionState.value === 'connected' && (commandInput.value.length > 0 || lineEnding.value !== 'none'))
+  const canSavePreset = computed(() => commandInput.value.trim().length > 0)
+  const isEditingPreset = computed(() => editingPresetId.value !== null)
+  const savePresetLabel = computed(() => (editingPresetId.value ? 'Update Preset' : 'Save Preset'))
   const queuedChunkCount = computed(() => pausedChunks.value.length)
   const totalVisibleLines = computed(() => displayEntries.value.length)
   const browserHint = computed(() => {
@@ -295,13 +319,9 @@ export const useSerialStore = defineStore('serial', () => {
     }
 
     const draft = commandInput.value
-    const payload = appendLineEnding(draft, lineEnding.value)
 
     try {
-      const bytesWritten = await serialService.send(payload)
-      txBytes.value += bytesWritten
-      addCompleteEntry('tx', draft)
-      rememberCommand(draft)
+      await sendTextPayload(draft, lineEnding.value, true)
       commandInput.value = ''
       historyCursor.value = -1
       draftCommand.value = ''
@@ -309,6 +329,172 @@ export const useSerialStore = defineStore('serial', () => {
       errorMessage.value = serialService.formatError(error, 'Unable to write to the serial device.')
       statusDetail.value = 'Write failed.'
     }
+  }
+
+  async function saveCurrentCommandPreset() {
+    if (!canSavePreset.value) {
+      errorMessage.value = 'Type a command before saving a preset.'
+      return
+    }
+
+    const commandName = presetNameInput.value.trim() || `Command ${commandPresets.value.length + 1}`
+    const payload = buildTextPayload(commandInput.value, lineEnding.value)
+
+    if (editingPresetId.value) {
+      const index = commandPresets.value.findIndex((item) => item.id === editingPresetId.value)
+
+      if (index !== -1) {
+        const existingPreset = commandPresets.value[index]
+        commandPresets.value.splice(index, 1, {
+          ...existingPreset,
+          name: commandName,
+          payloadHex: bytesToHex(payload),
+          commandText: commandInput.value,
+          lineEnding: lineEnding.value,
+          source: 'manual',
+        })
+      }
+
+      setUiNotice('success', `Updated preset "${commandName}".`)
+      addSystemEntry(`Updated command preset: ${commandName}.`)
+      cancelEditCommandPreset()
+      return
+    }
+
+    commandPresets.value.unshift({
+      id: createId(),
+      name: commandName,
+      payloadHex: bytesToHex(payload),
+      commandText: commandInput.value,
+      lineEnding: lineEnding.value,
+      source: 'manual',
+    })
+
+    presetNameInput.value = ''
+    setUiNotice('success', `Saved preset "${commandName}".`)
+    addSystemEntry(`Saved command preset: ${commandName}.`)
+  }
+
+  function loadCommandPreset(presetId: string) {
+    const preset = commandPresets.value.find((item) => item.id === presetId)
+    if (!preset) {
+      return
+    }
+
+    commandInput.value = preset.commandText
+    lineEnding.value = preset.lineEnding
+    historyCursor.value = -1
+    draftCommand.value = preset.commandText
+  }
+
+  async function sendCommandPreset(presetId: string) {
+    const preset = commandPresets.value.find((item) => item.id === presetId)
+    if (!preset) {
+      return
+    }
+
+    try {
+      await sendPreparedPayload(hexToBytes(preset.payloadHex), preset.commandText || `[${preset.name}]`, false)
+      setUiNotice('success', `Sent preset "${preset.name}".`)
+    } catch (error) {
+      errorMessage.value = serialService.formatError(error, `Unable to send preset "${preset.name}".`)
+      statusDetail.value = 'Write failed.'
+    }
+  }
+
+  function deleteCommandPreset(presetId: string) {
+    const preset = commandPresets.value.find((item) => item.id === presetId)
+    if (!preset) {
+      return
+    }
+
+    commandPresets.value = commandPresets.value.filter((item) => item.id !== presetId)
+    if (editingPresetId.value === presetId) {
+      cancelEditCommandPreset()
+    }
+    setUiNotice('info', `Removed preset "${preset.name}".`)
+  }
+
+  function beginEditCommandPreset(presetId: string) {
+    const preset = commandPresets.value.find((item) => item.id === presetId)
+    if (!preset) {
+      return
+    }
+
+    editingPresetId.value = preset.id
+    presetNameInput.value = preset.name
+    commandInput.value = preset.commandText
+    lineEnding.value = preset.lineEnding
+    historyCursor.value = -1
+    draftCommand.value = preset.commandText
+  }
+
+  function cancelEditCommandPreset() {
+    editingPresetId.value = null
+    presetNameInput.value = ''
+  }
+
+  function clearAllCommandPresets() {
+    if (commandPresets.value.length === 0) {
+      return
+    }
+
+    commandPresets.value = []
+    cancelEditCommandPreset()
+    setUiNotice('info', 'Cleared all saved command presets.')
+    addSystemEntry('Cleared all saved command presets.')
+  }
+
+  async function importCommandPresetsFromXml(xmlText: string) {
+    let importedCount = 0
+    let skippedCount = 0
+
+    try {
+      const result = parseCommandPresetXml(xmlText)
+      importedCount = result.importedCount
+      skippedCount = result.skippedCount
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'The XML file could not be imported.'
+      return
+    }
+
+    if (importedCount === 0) {
+      errorMessage.value = skippedCount > 0 ? 'The XML file did not contain any new command presets to import.' : 'No valid command presets were found in the XML file.'
+      return
+    }
+
+    const skippedMessage = skippedCount ? ` Skipped ${skippedCount} duplicate packet${skippedCount === 1 ? '' : 's'}.` : ''
+    setUiNotice('success', `Imported ${importedCount} command preset${importedCount === 1 ? '' : 's'}.${skippedMessage}`)
+    addSystemEntry(`Imported ${importedCount} command preset${importedCount === 1 ? '' : 's'} from XML.`)
+  }
+
+  function exportCommandPresetsToXml() {
+    if (commandPresets.value.length === 0) {
+      errorMessage.value = 'There are no saved command presets to export.'
+      return ''
+    }
+
+    const lines = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '',
+      '<data>',
+      '  <loop>false</loop>',
+      '  <repeat_times>1</repeat_times>',
+      '  <repeat_period>500</repeat_period>',
+      '  <packets_list>',
+      ...commandPresets.value.map((preset) => {
+        return [
+          `    <packet name="${escapeXml(preset.name)}">`,
+          `      <payload>${preset.payloadHex}</payload>`,
+          '    </packet>',
+        ].join('\n')
+      }),
+      '  </packets_list>',
+      '</data>',
+    ]
+
+    setUiNotice('success', `Exported ${commandPresets.value.length} command preset${commandPresets.value.length === 1 ? '' : 's'}.`)
+    return `${lines.join('\n')}\n`
   }
 
   function stepHistory(direction: 'up' | 'down') {
@@ -511,6 +697,25 @@ export const useSerialStore = defineStore('serial', () => {
     }
   }
 
+  async function sendTextPayload(command: string, ending: SerialLineEnding, remember = true) {
+    const payload = buildTextPayload(command, ending)
+    await sendPreparedPayload(payload, command, remember)
+  }
+
+  async function sendPreparedPayload(payload: Uint8Array, displayText: string, remember = false) {
+    const bytesWritten = await serialService.send(payload)
+    txBytes.value += bytesWritten
+    addCompleteEntry('tx', displayText)
+
+    if (remember) {
+      rememberCommand(displayText)
+    }
+  }
+
+  function buildTextPayload(command: string, ending: SerialLineEnding) {
+    return new TextEncoder().encode(appendLineEnding(command, ending))
+  }
+
   function appendLineEnding(command: string, ending: SerialLineEnding) {
     switch (ending) {
       case 'newline':
@@ -524,8 +729,123 @@ export const useSerialStore = defineStore('serial', () => {
     }
   }
 
+  function parseCommandPresetXml(xmlText: string): ImportedCommandPresetsResult {
+    if (typeof DOMParser === 'undefined') {
+      throw new Error('XML import is not available in this environment.')
+    }
+
+    const document = new DOMParser().parseFromString(xmlText, 'application/xml')
+    const parseError = document.querySelector('parsererror')
+    if (parseError) {
+      throw new Error('The XML file could not be parsed.')
+    }
+
+    const packets = Array.from(document.querySelectorAll('packets_list > packet'))
+    if (packets.length === 0) {
+      return { importedCount: 0, skippedCount: 0 }
+    }
+
+    const importedPresets: SerialCommandPreset[] = []
+    let skippedCount = 0
+
+    packets.forEach((packet, index) => {
+      const name = packet.getAttribute('name')?.trim() || `Packet ${index + 1}`
+      const payloadHex = packet.querySelector('payload')?.textContent?.trim().toUpperCase() ?? ''
+
+      if (!isValidHexPayload(payloadHex)) {
+        skippedCount += 1
+        return
+      }
+
+      const duplicate = commandPresets.value.some((preset) => preset.name === name && preset.payloadHex === payloadHex)
+        || importedPresets.some((preset) => preset.name === name && preset.payloadHex === payloadHex)
+
+      if (duplicate) {
+        skippedCount += 1
+        return
+      }
+
+      const decodedPayload = decodePresetPayload(payloadHex)
+
+      importedPresets.push({
+        id: createId(),
+        name,
+        payloadHex,
+        commandText: decodedPayload.commandText,
+        lineEnding: decodedPayload.lineEnding,
+        source: 'imported',
+      })
+    })
+
+    if (importedPresets.length > 0) {
+      commandPresets.value = [...importedPresets, ...commandPresets.value]
+    }
+
+    return {
+      importedCount: importedPresets.length,
+      skippedCount,
+    }
+  }
+
+  function decodePresetPayload(payloadHex: string) {
+    const bytes = hexToBytes(payloadHex)
+    const lineEnding = inferLineEnding(bytes)
+    const trimmedBytes = trimLineEndingBytes(bytes, lineEnding)
+
+    return {
+      commandText: new TextDecoder().decode(trimmedBytes),
+      lineEnding,
+    }
+  }
+
+  function inferLineEnding(bytes: Uint8Array): SerialLineEnding {
+    const length = bytes.length
+
+    if (length >= 2 && bytes[length - 2] === 0x0d && bytes[length - 1] === 0x0a) {
+      return 'crlf'
+    }
+
+    if (length >= 1 && bytes[length - 1] === 0x0a) {
+      return 'newline'
+    }
+
+    if (length >= 1 && bytes[length - 1] === 0x0d) {
+      return 'carriage-return'
+    }
+
+    return 'none'
+  }
+
+  function trimLineEndingBytes(bytes: Uint8Array, ending: SerialLineEnding) {
+    switch (ending) {
+      case 'crlf':
+        return bytes.slice(0, -2)
+      case 'newline':
+      case 'carriage-return':
+        return bytes.slice(0, -1)
+      default:
+        return bytes
+    }
+  }
+
+  function isValidHexPayload(value: string) {
+    return value.length > 0 && value.length % 2 === 0 && /^[0-9A-F]+$/i.test(value)
+  }
+
   function clearError() {
     errorMessage.value = ''
+  }
+
+  function clearUiNotice() {
+    uiNotice.value = null
+  }
+
+  function setUiNotice(tone: SerialUiNotice['tone'], message: string) {
+    uiNotice.value = {
+      id: createId(),
+      tone,
+      message,
+    }
   }
 
   async function updateBaudRate(value: number) {
@@ -589,27 +909,38 @@ export const useSerialStore = defineStore('serial', () => {
     baudRates,
     browserHint,
     canConnect,
+    canSavePreset,
     canDisconnect,
     canSend,
     commandHistory,
     commandInput,
+    commandPresets,
     connect,
     connectionState,
     dataBitsOptions,
     disconnect,
     displayEntries,
+    editingPresetId,
     errorMessage,
     historyCursor,
     initialize,
+    importCommandPresetsFromXml,
+    isEditingPreset,
     lineEnding,
+    beginEditCommandPreset,
+    loadCommandPreset,
     parityOptions,
     paused,
+    presetNameInput,
     queuedChunkCount,
     rxBytes,
+    savePresetLabel,
     searchQuery,
     selectedPortLabel,
     selectedPortMeta,
+    sendCommandPreset,
     sendCommand,
+    saveCurrentCommandPreset,
     setSearchQuery,
     settings,
     statusDetail,
@@ -625,14 +956,20 @@ export const useSerialStore = defineStore('serial', () => {
     toggleTimestamps,
     totalVisibleLines,
     txBytes,
+    uiNotice,
     updateBaudRate,
     updateDataBits,
     updateParity,
     updateStopBits,
     buildLogText,
+    cancelEditCommandPreset,
     choosePort,
+    clearAllCommandPresets,
     clearError,
+    clearUiNotice,
     clearOutput,
+    deleteCommandPreset,
+    exportCommandPresetsToXml,
   }
 })
 
@@ -679,4 +1016,95 @@ function writeStoredSerialSettings(settings: StoredSerialSettings) {
   }
 
   window.localStorage.setItem(SERIAL_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+}
+
+function readStoredCommandPresets(): SerialCommandPreset[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(COMMAND_PRESETS_STORAGE_KEY)
+    if (!rawValue) {
+      return []
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown
+    if (!Array.isArray(parsedValue)) {
+      return []
+    }
+
+    return parsedValue.flatMap((item) => {
+      if (!item || typeof item !== 'object') {
+        return []
+      }
+
+      const preset = item as Partial<SerialCommandPreset>
+      const lineEndingValue = preset.lineEnding
+      const sourceValue = preset.source
+
+      if (
+        typeof preset.id !== 'string' ||
+        typeof preset.name !== 'string' ||
+        typeof preset.payloadHex !== 'string' ||
+        typeof preset.commandText !== 'string' ||
+        !isSerialLineEnding(lineEndingValue) ||
+        !isCommandPresetSource(sourceValue)
+      ) {
+        return []
+      }
+
+      return [
+        {
+          id: preset.id,
+          name: preset.name,
+          payloadHex: preset.payloadHex.toUpperCase(),
+          commandText: preset.commandText,
+          lineEnding: lineEndingValue,
+          source: sourceValue,
+        } satisfies SerialCommandPreset,
+      ]
+    })
+  } catch {
+    return []
+  }
+}
+
+function writeStoredCommandPresets(presets: SerialCommandPreset[]) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(COMMAND_PRESETS_STORAGE_KEY, JSON.stringify(presets))
+}
+
+function hexToBytes(hex: string) {
+  const normalizedHex = hex.trim().replace(/\s+/g, '').toUpperCase()
+  const bytes = new Uint8Array(normalizedHex.length / 2)
+
+  for (let index = 0; index < normalizedHex.length; index += 2) {
+    bytes[index / 2] = Number.parseInt(normalizedHex.slice(index, index + 2), 16)
+  }
+
+  return bytes
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (value) => value.toString(16).toUpperCase().padStart(2, '0')).join('')
+}
+
+function escapeXml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+}
+
+function isSerialLineEnding(value: unknown): value is SerialLineEnding {
+  return value === 'none' || value === 'newline' || value === 'carriage-return' || value === 'crlf'
+}
+
+function isCommandPresetSource(value: unknown): value is SerialCommandPreset['source'] {
+  return value === 'manual' || value === 'imported'
 }

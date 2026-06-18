@@ -48,7 +48,7 @@ watch(
 </script>
 
 <template>
-  <section class="tool-panel flex h-[30rem] min-h-[30rem] max-h-[30rem] flex-col lg:h-[36rem] lg:min-h-[36rem] lg:max-h-[36rem]">
+  <section class="tool-panel flex h-[38rem] min-h-[38rem] max-h-[38rem] flex-col lg:h-[49rem] lg:min-h-[49rem] lg:max-h-[49rem]">
     <div class="panel-divider flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
       <div class="app-title-text text-sm font-medium">Serial Output</div>
 

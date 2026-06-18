@@ -48,6 +48,51 @@
   color: var(--color-text);
 }
 
+:root[data-theme='paper-sky'] {
+  color-scheme: light;
+  --color-app-bg: #eef4fb;
+  --color-sidebar-bg: #f7fbff;
+  --color-topbar-bg: #f3f8fd;
+  --color-panel-bg: #ffffff;
+  --color-console-bg: #f8fbff;
+  --color-input-bg: #ffffff;
+  --color-empty-card-bg: #e8f0f8;
+  --color-empty-icon-bg: #d7e4f2;
+  --color-border: #d6e2ef;
+  --color-border-strong: #bdd0e3;
+  --color-text: #102033;
+  --color-text-muted: #324861;
+  --color-text-subtle: #60758f;
+  --color-primary: #0f6cbd;
+  --color-primary-border: #0b5ea6;
+  --color-primary-soft: rgba(15, 108, 189, 0.12);
+  --color-primary-soft-hover: rgba(15, 108, 189, 0.2);
+  --color-primary-text: #0f6cbd;
+  --color-secondary-bg: #f3f8fd;
+  --color-secondary-hover: #e8f0f8;
+  --color-secondary-border: #c4d5e8;
+  --color-secondary-text: #1c334b;
+  --color-danger-bg: rgba(190, 24, 93, 0.08);
+  --color-danger-hover: rgba(190, 24, 93, 0.14);
+  --color-danger-border: #e11d48;
+  --color-danger-text: #be123c;
+  --color-sidebar-hover: rgba(15, 108, 189, 0.06);
+  --color-sidebar-active-bg: rgba(15, 108, 189, 0.1);
+  --color-sidebar-active-border: rgba(15, 108, 189, 0.22);
+  --color-field-label-bg: var(--color-panel-bg);
+  --color-toast-info-bg: #ffffff;
+  --color-toast-info-border: #c4d5e8;
+  --color-badge-rx-bg: rgba(14, 165, 233, 0.1);
+  --color-badge-rx-border: rgba(14, 165, 233, 0.22);
+  --color-badge-rx-text: #0369a1;
+  --color-badge-tx-bg: rgba(15, 108, 189, 0.1);
+  --color-badge-tx-border: rgba(15, 108, 189, 0.22);
+  --color-badge-tx-text: #0f6cbd;
+  --color-badge-system-bg: rgba(100, 116, 139, 0.1);
+  --color-badge-system-border: rgba(100, 116, 139, 0.18);
+  --color-badge-system-text: #475569;
+}
+
 :root[data-theme='charcoal-emerald'] {
   --color-app-bg: #0f172a;
   --color-sidebar-bg: #17212f;
@@ -328,6 +373,45 @@ textarea {
   border-color: var(--color-primary-border);
   background: var(--color-primary-soft);
   color: var(--color-primary-text);
+}
+
+.command-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-secondary-bg);
+  color: var(--color-text-muted);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.command-action-button:hover:not(:disabled) {
+  background: var(--color-secondary-hover);
+}
+
+.command-action-button-send {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-panel-bg));
+  color: color-mix(in srgb, var(--color-primary) 88%, var(--color-text));
+}
+
+.command-action-button-send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-panel-bg));
+}
+
+.command-action-button-danger {
+  border-color: color-mix(in srgb, var(--color-danger-text) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger-text) 10%, var(--color-panel-bg));
+  color: var(--color-danger-text);
+}
+
+.command-action-button-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger-text) 16%, var(--color-panel-bg));
 }
 
 .serial-pre {

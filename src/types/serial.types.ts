@@ -44,3 +44,18 @@ export interface SerialServiceCallbacks {
   onDisconnect: () => void
   onError: (message: string, error?: unknown) => void
 }
+
+export interface SerialCommandPreset {
+  id: string
+  name: string
+  payloadHex: string
+  commandText: string
+  lineEnding: SerialLineEnding
+  source: 'manual' | 'imported'
+}
+
+export interface SerialUiNotice {
+  id: string
+  message: string
+  tone: 'success' | 'info'
+}

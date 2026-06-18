@@ -1,4 +1,5 @@
 export type AppThemeId =
+  | 'paper-sky'
   | 'slate-blue'
   | 'charcoal-emerald'
   | 'graphite-cyan'
@@ -14,6 +15,7 @@ export const THEME_STORAGE_KEY = 'serial-monitor-theme'
 export const DEFAULT_THEME_ID: AppThemeId = 'slate-blue'
 
 export const APP_THEMES: AppThemeOption[] = [
+  { id: 'paper-sky', label: 'Paper + Sky' },
   { id: 'slate-blue', label: 'Slate + Blue' },
   { id: 'charcoal-emerald', label: 'Charcoal + Emerald' },
   { id: 'graphite-cyan', label: 'Graphite + Cyan' },
