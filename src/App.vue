@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppHeader from './components/AppHeader.vue'
 import SerialCommandInput from './components/SerialCommandInput.vue'
 import SerialMonitorOutput from './components/SerialMonitorOutput.vue'
+import ToastStack from './components/ToastStack.vue'
+import type { ToastItem, ToastTone } from './components/ToastStack.vue'
 import { useSerialStore } from './stores/serial.store'
 
 const store = useSerialStore()
@@ -21,6 +23,7 @@ const {
   selectedPortLabel,
   statusLabel,
   statusTone,
+  supportMessage,
   supported,
   settings,
   timestampsEnabled,
@@ -28,31 +31,43 @@ const {
   txBytes,
 } = storeToRefs(store)
 
-const feedbackMessage = ref('')
 const sectionItems = ['Serial Monitor', 'Device Info', 'Partitions', 'Apps', 'NVS Inspector', 'Flash Tools', 'Session Log', 'About']
 const resourceItems = ['Tutorial', 'Buy Me a Coffee', 'Get Help']
-
-const supportBanner = computed(() => {
-  if (supported.value) {
-    return ''
-  }
-
-  return 'This browser does not expose the Web Serial API. Open the app in Chrome, Edge, or another Chromium-based browser over localhost or HTTPS.'
-})
+const toasts = ref<ToastItem[]>([])
+const unsupportedToastShown = ref(false)
 
 onMounted(() => {
   void store.initialize()
 })
 
+watch(errorMessage, (message) => {
+  if (!message) {
+    return
+  }
+
+  addToast('error', message, 4200)
+  store.clearError()
+})
+
+watch(
+  [supported, supportMessage],
+  ([isSupported, message]) => {
+    if (isSupported || unsupportedToastShown.value || !message) {
+      return
+    }
+
+    unsupportedToastShown.value = true
+    addToast('error', message, 5200)
+  },
+  { immediate: true },
+)
+
 async function copyOutput() {
   try {
     await navigator.clipboard.writeText(store.buildLogText())
-    feedbackMessage.value = 'Copied visible serial output to the clipboard.'
-    window.setTimeout(() => {
-      feedbackMessage.value = ''
-    }, 2200)
+    addToast('success', 'Copied visible serial output to the clipboard.', 2200)
   } catch {
-    feedbackMessage.value = 'Clipboard access failed. Use download instead.'
+    addToast('error', 'Clipboard access failed. Use download instead.', 3200)
   }
 }
 
@@ -66,15 +81,27 @@ function downloadLog() {
   link.download = `serial-log-${stamp}.txt`
   link.click()
   URL.revokeObjectURL(url)
-  feedbackMessage.value = 'Downloaded the current serial log.'
+  addToast('success', 'Downloaded the current serial log.', 2200)
+}
+
+function addToast(tone: ToastTone, message: string, duration = 2800) {
+  const id = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
+  toasts.value.push({ id, message, tone })
+
   window.setTimeout(() => {
-    feedbackMessage.value = ''
-  }, 2200)
+    removeToast(id)
+  }, duration)
+}
+
+function removeToast(id: string) {
+  toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 </script>
 
 <template>
   <div class="min-h-screen bg-[#111111] text-slate-200">
+    <ToastStack :toasts="toasts" @close="removeToast" />
+
     <div class="grid min-h-screen lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside class="border-r border-slate-800 bg-[#212121]">
         <div class="px-4 py-4">
@@ -140,27 +167,6 @@ function downloadLog() {
         </div>
 
         <div class="space-y-4 p-4">
-          <div
-            v-if="supportBanner"
-            class="rounded border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-100"
-          >
-            {{ supportBanner }}
-          </div>
-
-          <div
-            v-if="errorMessage"
-            class="rounded border border-rose-900 bg-rose-950/40 px-4 py-3 text-sm text-rose-200"
-          >
-            {{ errorMessage }}
-          </div>
-
-          <div
-            v-if="feedbackMessage"
-            class="rounded border border-emerald-900 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100"
-          >
-            {{ feedbackMessage }}
-          </div>
-
           <div class="space-y-4">
             <SerialMonitorOutput
               :entries="displayEntries"

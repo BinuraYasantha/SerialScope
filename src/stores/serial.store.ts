@@ -514,6 +514,7 @@ export const useSerialStore = defineStore('serial', () => {
     txBytes,
     buildLogText,
     choosePort,
+    clearError,
     clearOutput,
   }
 })
