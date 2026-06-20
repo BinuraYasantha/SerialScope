@@ -96,7 +96,7 @@ const emit = defineEmits<{
             </div>
           </div>
 
-          <div class="tool-panel overflow-hidden">
+          <div class="tool-panel overflow-hidden lg:flex lg:flex-col">
             <div class="border-b border-[var(--color-border)] px-5 py-4">
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -110,7 +110,7 @@ const emit = defineEmits<{
               </div>
             </div>
 
-            <div class="space-y-4 p-5">
+            <div class="flex h-full flex-col gap-4 p-5">
               <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-topbar-bg)] p-4">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="tool-button tool-button-secondary">Select Port</span>
@@ -120,7 +120,7 @@ const emit = defineEmits<{
                 </div>
               </div>
 
-              <div class="rounded-xl border border-[var(--color-border)] serial-viewport p-4">
+              <div class="rounded-xl border border-[var(--color-border)] serial-viewport p-4 lg:flex-1">
                 <div class="flex items-center justify-between gap-3 border-b border-[var(--color-border)] pb-3">
                   <div>
                     <div class="app-title-text text-sm font-semibold">Serial Output</div>
@@ -147,6 +147,26 @@ const emit = defineEmits<{
                     <span class="serial-direction-badge serial-direction-badge-rx mr-3">RX</span>
                     <span class="app-muted-text">17:06:36.120</span>
                     <span class="app-title-text ml-3">OK RSSI=-61 MODE=RUN</span>
+                  </div>
+                  <div class="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-console-bg)_84%,white_4%)] px-3 py-2">
+                    <span class="serial-direction-badge serial-direction-badge-rx mr-3">RX</span>
+                    <span class="app-muted-text">17:06:36.504</span>
+                    <span class="app-title-text ml-3">sensor: temp=24.8C humidity=48.2%</span>
+                  </div>
+                  <div class="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-primary)_10%,var(--color-console-bg))] px-3 py-2">
+                    <span class="serial-direction-badge serial-direction-badge-tx mr-3">TX</span>
+                    <span class="app-muted-text">17:06:36.887</span>
+                    <span class="app-title-text ml-3">AT+READCFG=NET</span>
+                  </div>
+                  <div class="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-console-bg)_84%,white_4%)] px-3 py-2">
+                    <span class="serial-direction-badge serial-direction-badge-rx mr-3">RX</span>
+                    <span class="app-muted-text">17:06:37.023</span>
+                    <span class="app-title-text ml-3">NET CH=15 PAN=0x4A21 TXPWR=08</span>
+                  </div>
+                  <div class="rounded-lg border border-[var(--color-border)] bg-[color:color-mix(in_srgb,var(--color-console-bg)_84%,white_4%)] px-3 py-2">
+                    <span class="serial-direction-badge serial-direction-badge-rx mr-3">RX</span>
+                    <span class="app-muted-text">17:06:37.418</span>
+                    <span class="app-title-text ml-3">diag: queue=0 retries=0 uptime=00:14:22</span>
                   </div>
                   <div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel-bg)] px-3 py-3">
                     <div class="flex items-center justify-between gap-3">
