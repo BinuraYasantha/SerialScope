@@ -42,6 +42,7 @@ interface ImportedCommandPresetsResult {
 }
 
 export const useSerialStore = defineStore('serial', () => {
+  const initialized = ref(false)
   const persistedSettings = readStoredSerialSettings()
   const persistedCommandPresets = readStoredCommandPresets()
 
@@ -198,6 +199,11 @@ export const useSerialStore = defineStore('serial', () => {
   })
 
   async function initialize() {
+    if (initialized.value) {
+      return
+    }
+
+    initialized.value = true
     supported.value = serialService.isSupported()
 
     if (!supported.value) {

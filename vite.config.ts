@@ -8,5 +8,8 @@ export default defineConfig(({ mode }) => {
   return {
     base: env.VITE_APP_BASE || '/',
     plugins: [vue(), tailwindcss()],
+    ssgOptions: {
+      dirStyle: 'nested',
+    },
   }
 })
