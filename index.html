@@ -5,9 +5,60 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#09111f" />
-    <title>SerialScope</title>
+    <title>SerialScope - Browser-Based Serial Monitor for USB Devices</title>
+    <meta
+      name="description"
+      content="SerialScope is a browser-based serial monitor for USB devices with live serial output, saved command presets, XML import, and Web Serial support."
+    />
+    <meta
+      name="keywords"
+      content="serial monitor, web serial, usb serial, browser serial terminal, embedded tools, serial console, serialscope"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="SerialScope" />
+    <link rel="canonical" href="https://serialscope.pages.dev/" />
+
+    <meta property="og:site_name" content="SerialScope" />
+    <meta property="og:title" content="SerialScope - Browser-Based Serial Monitor for USB Devices" />
+    <meta
+      property="og:description"
+      content="Connect to USB serial devices directly from your browser, inspect live logs, send commands, and manage reusable XML command presets."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://serialscope.pages.dev/" />
+    <meta property="og:image" content="https://serialscope.pages.dev/og-image.svg" />
+    <meta property="og:image:alt" content="SerialScope browser-based serial monitor preview" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SerialScope - Browser-Based Serial Monitor for USB Devices" />
+    <meta
+      name="twitter:description"
+      content="A clean browser-based serial monitor with live output, XML command presets, and Web Serial support."
+    />
+    <meta name="twitter:image" content="https://serialscope.pages.dev/og-image.svg" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SerialScope",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "url": "https://serialscope.pages.dev/",
+        "description": "SerialScope is a browser-based serial monitor for USB devices with live logs, command presets, XML import, and Web Serial support.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
+    <noscript>
+      SerialScope is a browser-based USB serial monitor. Enable JavaScript to open serial ports, inspect live logs,
+      and send commands from your browser.
+    </noscript>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

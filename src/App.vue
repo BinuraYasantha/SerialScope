@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import AppHeader from './components/AppHeader.vue'
+import HomePage from './components/HomePage.vue'
 import SerialCommandInput from './components/SerialCommandInput.vue'
 import SerialMonitorOutput from './components/SerialMonitorOutput.vue'
 import ToastStack from './components/ToastStack.vue'
 import type { ToastItem, ToastTone } from './components/ToastStack.vue'
 import { useSerialStore } from './stores/serial.store'
 import { APP_THEMES, DEFAULT_THEME_ID, THEME_STORAGE_KEY, isAppThemeId, type AppThemeId } from './themes/appThemes'
+
+type AppView = 'landing' | 'app'
 
 const store = useSerialStore()
 const {
@@ -31,28 +34,43 @@ const {
   uiNotice,
 } = storeToRefs(store)
 
-type SectionId = 'Serial Monitor'
-
-const sectionItems: SectionId[] = ['Serial Monitor']
 const resourceItems = ['Tutorial']
 const toasts = ref<ToastItem[]>([])
 const unsupportedToastShown = ref(false)
 const selectedTheme = ref<AppThemeId>(readStoredTheme())
-const activeSection = ref<SectionId>('Serial Monitor')
+const currentView = ref<AppView>(readCurrentView())
 const lastConnectionState = ref(connectionState.value)
+const storeInitialized = ref(false)
 
 applyTheme(selectedTheme.value)
+updateDocumentMetadata(currentView.value)
 
 onMounted(() => {
-  void store.initialize()
+  window.addEventListener('popstate', syncCurrentView)
+
+  if (currentView.value === 'app') {
+    void initializeStoreOnce()
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('popstate', syncCurrentView)
 })
 
 watch(selectedTheme, (theme) => {
   applyTheme(theme)
 })
 
+watch(currentView, (view) => {
+  updateDocumentMetadata(view)
+
+  if (view === 'app') {
+    void initializeStoreOnce()
+  }
+})
+
 watch(errorMessage, (message) => {
-  if (!message) {
+  if (currentView.value !== 'app' || !message) {
     return
   }
 
@@ -63,7 +81,7 @@ watch(errorMessage, (message) => {
 watch(
   [supported, supportMessage],
   ([isSupported, message]) => {
-    if (isSupported || unsupportedToastShown.value || !message) {
+    if (currentView.value !== 'app' || isSupported || unsupportedToastShown.value || !message) {
       return
     }
 
@@ -74,6 +92,11 @@ watch(
 )
 
 watch(connectionState, (state) => {
+  if (currentView.value !== 'app') {
+    lastConnectionState.value = state
+    return
+  }
+
   const previousState = lastConnectionState.value
 
   if (state === 'connected' && previousState !== 'connected') {
@@ -88,13 +111,22 @@ watch(connectionState, (state) => {
 })
 
 watch(uiNotice, (notice) => {
-  if (!notice) {
+  if (currentView.value !== 'app' || !notice) {
     return
   }
 
   addToast(notice.tone, notice.message, 2600)
   store.clearUiNotice()
 })
+
+async function initializeStoreOnce() {
+  if (storeInitialized.value) {
+    return
+  }
+
+  storeInitialized.value = true
+  await store.initialize()
+}
 
 async function copyOutput() {
   try {
@@ -151,16 +183,118 @@ function applyTheme(theme: AppThemeId) {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }
 }
+
+function readCurrentView(): AppView {
+  if (typeof window === 'undefined') {
+    return 'landing'
+  }
+
+  return normalizePath(window.location.pathname) === '/app' ? 'app' : 'landing'
+}
+
+function syncCurrentView() {
+  currentView.value = readCurrentView()
+}
+
+function openApplication() {
+  if (typeof window === 'undefined') {
+    currentView.value = 'app'
+    return
+  }
+
+  const nextPath = '/app'
+
+  if (normalizePath(window.location.pathname) !== nextPath) {
+    window.history.pushState({}, '', nextPath)
+  }
+
+  currentView.value = 'app'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function openLandingPage() {
+  if (typeof window === 'undefined') {
+    currentView.value = 'landing'
+    return
+  }
+
+  const nextPath = '/'
+
+  if (normalizePath(window.location.pathname) !== nextPath) {
+    window.history.pushState({}, '', nextPath)
+  }
+
+  currentView.value = 'landing'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function normalizePath(pathname: string) {
+  const normalized = pathname.replace(/\/+$/, '')
+  return normalized === '' ? '/' : normalized
+}
+
+function updateDocumentMetadata(view: AppView) {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return
+  }
+
+  const title =
+    view === 'app'
+      ? 'SerialScope App - Browser Serial Monitor'
+      : 'SerialScope - Browser-Based Serial Monitor for USB Devices'
+  const description =
+    view === 'app'
+      ? 'Use the SerialScope serial monitor app to connect to USB serial devices, inspect live logs, and send commands from your browser.'
+      : 'SerialScope is a browser-based serial monitor for USB devices with live serial output, saved command presets, XML import, and Web Serial support.'
+  const canonicalPath = view === 'app' ? '/app' : '/'
+  const robots = view === 'app' ? 'noindex, nofollow' : 'index, follow'
+
+  document.title = title
+  setMetaTag('name', 'description', description)
+  setMetaTag('name', 'robots', robots)
+  setMetaTag('property', 'og:title', title)
+  setMetaTag('property', 'og:description', description)
+  setMetaTag('property', 'og:url', `${window.location.origin}${canonicalPath}`)
+  setMetaTag('name', 'twitter:title', title)
+  setMetaTag('name', 'twitter:description', description)
+
+  let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+  if (!canonical) {
+    canonical = document.createElement('link')
+    canonical.rel = 'canonical'
+    document.head.appendChild(canonical)
+  }
+  canonical.href = `${window.location.origin}${canonicalPath}`
+}
+
+function setMetaTag(attribute: 'name' | 'property', value: string, content: string) {
+  let tag = document.head.querySelector(`meta[${attribute}="${value}"]`) as HTMLMetaElement | null
+
+  if (!tag) {
+    tag = document.createElement('meta')
+    tag.setAttribute(attribute, value)
+    document.head.appendChild(tag)
+  }
+
+  tag.content = content
+}
 </script>
 
 <template>
   <div class="app-shell min-h-screen">
-    <ToastStack :toasts="toasts" @close="removeToast" />
+    <ToastStack v-if="currentView === 'app'" :toasts="toasts" @close="removeToast" />
 
-    <div class="grid min-h-screen lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <HomePage
+      v-if="currentView === 'landing'"
+      :selected-theme="selectedTheme"
+      @update:theme="selectedTheme = $event"
+      @open-monitor="openApplication"
+    />
+
+    <div v-else class="grid min-h-screen lg:grid-cols-[16rem_minmax(0,1fr)]">
       <aside class="app-sidebar border-r">
         <div class="px-4 py-4">
-          <div class="flex items-center gap-3">
+          <button type="button" class="flex items-center gap-3 text-left" @click="openLandingPage">
             <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-panel-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <svg viewBox="0 0 64 64" class="h-7 w-7" fill="none" aria-hidden="true">
                 <rect x="8" y="8" width="48" height="48" rx="12" fill="#0F172A" />
@@ -169,25 +303,19 @@ function applyTheme(theme: AppThemeId) {
                 <path d="M36 39H44" stroke="#E0F2FE" stroke-width="5" stroke-linecap="round" />
               </svg>
             </span>
-            <div class="app-title-text text-xl font-semibold">SerialScope</div>
-          </div>
-          <div class="app-muted-text mt-1 text-sm">v0.0.1</div>
+            <div>
+              <div class="app-title-text text-xl font-semibold">SerialScope</div>
+              <div class="app-muted-text mt-1 text-sm">v0.0.1</div>
+            </div>
+          </button>
         </div>
 
         <div class="app-divider border-t px-3 py-4">
           <div class="app-section-label px-2 text-xs font-semibold uppercase tracking-[0.18em]">Sections</div>
           <nav class="mt-3 space-y-1">
-            <button
-              v-for="item in sectionItems"
-              :key="item"
-              type="button"
-              class="sidebar-item"
-              :class="{ 'sidebar-item-active': item === activeSection }"
-              @click="activeSection = item"
-            >
+            <button type="button" class="sidebar-item sidebar-item-active">
               <span class="sidebar-item-icon">
                 <svg
-                  v-if="item === 'Serial Monitor'"
                   viewBox="0 0 24 24"
                   class="sidebar-item-icon-svg"
                   fill="none"
@@ -202,7 +330,7 @@ function applyTheme(theme: AppThemeId) {
                   <path d="M15 18h5" />
                 </svg>
               </span>
-              <span>{{ item }}</span>
+              <span>Serial Monitor</span>
             </button>
           </nav>
         </div>
@@ -262,7 +390,7 @@ function applyTheme(theme: AppThemeId) {
         </div>
 
         <div class="space-y-4 p-4">
-          <div v-if="activeSection === 'Serial Monitor'" class="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div class="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <SerialMonitorOutput
               :entries="displayEntries"
               :auto-scroll="autoScroll"
@@ -284,7 +412,6 @@ function applyTheme(theme: AppThemeId) {
 
             <SerialCommandInput />
           </div>
-
         </div>
       </main>
     </div>
